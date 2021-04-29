@@ -263,7 +263,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     private ChannelFuture doBind(final SocketAddress localAddress) {
         // 在里面通过反射创建channel
         final ChannelFuture regFuture = initAndRegister();
+
         final Channel channel = regFuture.channel();
+
         if (regFuture.cause() != null) {
             return regFuture;
         }
@@ -276,6 +278,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         } else {
             // Registration future is almost always fulfilled already, but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
+            // 来这里添加listener
             regFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -300,7 +303,15 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     final ChannelFuture initAndRegister() {
         Channel channel = null;
         try {
+            // 通过反射创建.这里构建的其实是之前设置的NioServerSocketChannel
+            /**
+             *  NioServerSocketChannel 做了许多事情，{@link io.netty.channel.socket.nio.NioServerSocketChannel}
+              */
             channel = channelFactory.newChannel();
+            /**
+             *  NioServerSocketChannel 这里也上看这个类，{@link io.netty.channel.socket.nio.NioServerSocketChannel}
+             *  在NioServerSocketChannel初始化完后，去设置一些用户设置的东西
+             */
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -312,7 +323,12 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             // as the Channel is not registered yet we need to force the usage of the GlobalEventExecutor
             return new DefaultChannelPromise(new FailedChannel(), GlobalEventExecutor.INSTANCE).setFailure(t);
         }
-
+        /**
+         * 上面走完后会来到这里
+         *          拿到的是boss组，选择一个eventloop去注册
+         *          unsafe.register
+         *          tips: feature是可以添加监听者的。这个regFuture会返回出去 {@link AbstractBootstrap}
+         */
         ChannelFuture regFuture = config().group().register(channel);
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {

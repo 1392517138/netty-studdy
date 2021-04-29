@@ -133,6 +133,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                 childOptions.entrySet().toArray(EMPTY_OPTION_ARRAY);
         final Entry<AttributeKey<?>, Object>[] currentChildAttrs = childAttrs.entrySet().toArray(EMPTY_ATTRIBUTE_ARRAY);
 
+        /**
+         * 这里是比较重要的，拿到pipeline后，加入handler，由这个handler去加其他handler
+         *  在分解出来后又把自己删去
+         *  这个ChannelInitializer比较特殊
+         */
         p.addLast(new ChannelInitializer<Channel>() {
             @Override
             public void initChannel(final Channel ch) {

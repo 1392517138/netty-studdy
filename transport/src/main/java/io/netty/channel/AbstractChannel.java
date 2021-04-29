@@ -71,7 +71,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
         id = newId();
+
         unsafe = newUnsafe();
+        //Default..pipeline
         pipeline = newChannelPipeline();
     }
 

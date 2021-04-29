@@ -77,7 +77,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      * @param readInterestOp    the ops to set to receive data from the {@link SelectableChannel}
      */
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
+        // 创建Unsafe实例，这是netty自己的，做了一些封装
         super(parent);
+
         this.ch = ch;
         this.readInterestOp = readInterestOp;
         try {

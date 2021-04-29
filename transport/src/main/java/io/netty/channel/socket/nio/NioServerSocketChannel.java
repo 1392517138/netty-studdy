@@ -58,6 +58,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
              *  {@link SelectorProvider#provider()} which is called by each ServerSocketChannel.open() otherwise.
              *
              *  See <a href="https://github.com/netty/netty/issues/2308">#2308</a>.
+             *  拿到jdk包下的nioSocketChannel实例
              */
             return provider.openServerSocketChannel();
         } catch (IOException e) {
@@ -71,6 +72,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     /**
      * Create a new instance
      */
+    //在这里newScoket
     public NioServerSocketChannel() {
         this(newSocket(DEFAULT_SELECTOR_PROVIDER));
     }
@@ -86,7 +88,9 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
      * Create a new instance using the given {@link ServerSocketChannel}.
      */
     public NioServerSocketChannel(ServerSocketChannel channel) {
+        // 拿到channel设置关注的实践为accept
         super(null, channel, SelectionKey.OP_ACCEPT);
+        // 在这里设置了一个接受缓冲区的内存分配器
         config = new NioServerSocketChannelConfig(this, javaChannel().socket());
     }
 
