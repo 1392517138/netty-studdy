@@ -55,6 +55,14 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      * @param args              arguments which will passed to each {@link #newChild(Executor, Object...)} call
      */
     protected MultithreadEventExecutorGroup(int nThreads, Executor executor, Object... args) {
+        //1：线程数量
+        //2：执行器
+        //3：选择提供器，通过她可以获得jdk层面的selector实例 ====args
+        //4：选择器工作策略 ===args
+        //5：线程池拒绝策略 ===args
+        /**
+         * DefaultEventExecutorChooserFactory 用来生成chooser实例的工厂
+         */
         this(nThreads, executor, DefaultEventExecutorChooserFactory.INSTANCE, args);
     }
 
@@ -68,11 +76,24 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
      */
     protected MultithreadEventExecutorGroup(int nThreads, Executor executor,
                                             EventExecutorChooserFactory chooserFactory, Object... args) {
+        //1：线程数量
+        //2：执行器
+        //3：choose选择器
+        //4：选择提供器，通过她可以获得jdk层面的selector实例 ====args
+        //5：选择器工作策略 ===args
+        //6：线程池拒绝策略 ===args
         if (nThreads <= 0) {
             throw new IllegalArgumentException(String.format("nThreads: %d (expected: > 0)", nThreads));
         }
 
         if (executor == null) {
+            /**
+             *     真正生产出来执行任务的线程executor。
+             *              从名称可以看出是为每一个任务Task生产一个executor
+             *              需要查看{@code newDefaultThreadFactory()}
+             * {@link DefaultThreadFactory} 有参考价值
+             *  创建出来的线程名称为：className + pollId + threadId， 线程实例类型为{@link FastThreadLocal}
+             */
             executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
         }
 
@@ -81,6 +102,16 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
         for (int i = 0; i < nThreads; i ++) {
             boolean success = false;
             try {
+                // newChile会返回一个新的eventLoop实例
+                /**
+                 * 重要!!!!!
+                 * executor {@link ThreadPerTaskExecutor}，这个实例包含了一个ThreadFactory，可制造线程
+                 * 制造出来的线程名称为calssName + pollId + 线程Id，线程实例类型为FastThreadLocalThread
+                 *    args:
+                 *         4：选择提供器，通过她可以获得jdk层面的selector实例 ====args
+                 *         5：选择器工作策略 ===args
+                 *         6：线程池拒绝策略 ===args
+                 */
                 children[i] = newChild(executor, args);
                 success = true;
             } catch (Exception e) {
@@ -107,9 +138,11 @@ public abstract class MultithreadEventExecutorGroup extends AbstractEventExecuto
                 }
             }
         }
-
+        // 根据当前children数量选择一个chooser
+        // 后面外部资源想要获取或者注册到NioEventLoop，都是通过chooser来分配的
         chooser = chooserFactory.newChooser(children);
 
+        // 每有一个child关闭，都对terminatedChildren进加一操作，然在这会增加一个监听
         final FutureListener<Object> terminationListener = new FutureListener<Object>() {
             @Override
             public void operationComplete(Future<Object> future) throws Exception {

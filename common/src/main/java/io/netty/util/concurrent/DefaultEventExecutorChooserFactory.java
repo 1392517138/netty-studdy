@@ -31,7 +31,20 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
 
     @SuppressWarnings("unchecked")
     @Override
+    //EventExecutor[] executors 其实就是NioEventLoop数组
     public EventExecutorChooser newChooser(EventExecutor[] executors) {
+        /**
+         *  private static boolean isPowerOfTwo(int val) {
+         *         return (val & -val) == val;
+         *     }
+         * 根据你的数组元素数量来选择选择器
+         * 判断是不是2的次方数
+         * {@link io.netty.util.concurrent.DefaultEventExecutorChooserFactory.PowerOfTwoEventExecutorChooser}
+         * {@link io.netty.util.concurrent.DefaultEventExecutorChooserFactory.GenericEventExecutorChooser}
+         * 看它 的next方法
+         * 对于奇数偶数处理不同，体现了高效性
+         * 2次方与111...11相与得下标，奇数取模
+         */
         if (isPowerOfTwo(executors.length)) {
             return new PowerOfTwoEventExecutorChooser(executors);
         } else {
@@ -43,6 +56,7 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
         return (val & -val) == val;
     }
 
+
     private static final class PowerOfTwoEventExecutorChooser implements EventExecutorChooser {
         private final AtomicInteger idx = new AtomicInteger();
         private final EventExecutor[] executors;
@@ -51,6 +65,10 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
             this.executors = executors;
         }
 
+        /**
+         * idx & 1111....111
+         * @return
+         */
         @Override
         public EventExecutor next() {
             return executors[idx.getAndIncrement() & executors.length - 1];
@@ -65,6 +83,10 @@ public final class DefaultEventExecutorChooserFactory implements EventExecutorCh
             this.executors = executors;
         }
 
+        /**
+         * 取模
+         * @return
+         */
         @Override
         public EventExecutor next() {
             return executors[Math.abs(idx.getAndIncrement() % executors.length)];

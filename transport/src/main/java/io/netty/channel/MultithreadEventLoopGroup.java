@@ -55,6 +55,11 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     /**
      * @see MultithreadEventExecutorGroup#MultithreadEventExecutorGroup(int, ThreadFactory, Object...)
      */
+    //1：线程数量
+    //2：执行器
+    //3：选择提供器，通过她可以获得jdk层面的selector实例 ====args
+    //4：选择器工作策略 ===args
+    //5：线程池拒绝策略 ===args
     protected MultithreadEventLoopGroup(int nThreads, ThreadFactory threadFactory, Object... args) {
         super(nThreads == 0 ? DEFAULT_EVENT_LOOP_THREADS : nThreads, threadFactory, args);
     }

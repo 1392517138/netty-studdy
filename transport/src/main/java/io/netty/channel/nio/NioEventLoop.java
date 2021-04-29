@@ -132,9 +132,26 @@ public final class NioEventLoop extends SingleThreadEventLoop {
     private int cancelledKeys;
     private boolean needsToSelectAgain;
 
+    /**
+     *
+     * @param parent
+     * @param executor
+     * @param selectorProvider
+     * @param strategy
+     * @param rejectedExecutionHandler
+     * @param queueFactory
+     */
     NioEventLoop(NioEventLoopGroup parent, Executor executor, SelectorProvider selectorProvider,
                  SelectStrategy strategy, RejectedExecutionHandler rejectedExecutionHandler,
                  EventLoopTaskQueueFactory queueFactory) {
+        /**
+         * 1.nioEventLoopGroup
+         * 2.ThreadPerTaskExecutor实例，来源是group内创建的
+         * 3.addTaskWakesUp,暂且不管。。。
+         * 4.newTaskQueue(queueFactory)最终返回了一个Queue实例，最大长度是Integer最大值， task
+         * 5.tailQueue，大部分用不到
+         * 6.线程池拒绝策略
+         */
         super(parent, executor, false, newTaskQueue(queueFactory), newTaskQueue(queueFactory),
                 rejectedExecutionHandler);
         this.provider = ObjectUtil.checkNotNull(selectorProvider, "selectorProvider");

@@ -25,18 +25,25 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A {@link ThreadFactory} implementation with a simple naming rule.
+ *  它最重要的作用就是创建Thread
+ *  {@link #newThread(Runnable, String)} )} 里的 {@link FastThreadLocalThread}
  */
 public class DefaultThreadFactory implements ThreadFactory {
 
+    // 每个ThreadFactory都有自己的poolId
     private static final AtomicInteger poolId = new AtomicInteger();
-
+    // 每个ThreadFactory生成的线程都有自己的id
     private final AtomicInteger nextId = new AtomicInteger();
+    // 线程的前缀
     private final String prefix;
+    // 是否是后台线程
     private final boolean daemon;
+    // 线程优先级 默认是5
     private final int priority;
     protected final ThreadGroup threadGroup;
 
     public DefaultThreadFactory(Class<?> poolType) {
+        // 看这里
         this(poolType, false, Thread.NORM_PRIORITY);
     }
 
@@ -61,6 +68,7 @@ public class DefaultThreadFactory implements ThreadFactory {
     }
 
     public DefaultThreadFactory(Class<?> poolType, boolean daemon, int priority) {
+        // 计算包名
         this(toPoolName(poolType), daemon, priority);
     }
 
@@ -89,7 +97,7 @@ public class DefaultThreadFactory implements ThreadFactory {
             throw new IllegalArgumentException(
                     "priority: " + priority + " (expected: Thread.MIN_PRIORITY <= priority <= Thread.MAX_PRIORITY)");
         }
-
+        // 拿到你的className，第一个字母转为小写后的，加上pollId
         prefix = poolName + '-' + poolId.incrementAndGet() + '-';
         this.daemon = daemon;
         this.priority = priority;
@@ -103,6 +111,7 @@ public class DefaultThreadFactory implements ThreadFactory {
 
     @Override
     public Thread newThread(Runnable r) {
+        // 之前设置的前缀再加上我们的线程id
         Thread t = newThread(FastThreadLocalRunnable.wrap(r), prefix + nextId.incrementAndGet());
         try {
             if (t.isDaemon() != daemon) {
