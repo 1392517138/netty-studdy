@@ -464,10 +464,17 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             return remoteAddress0();
         }
 
+        /**
+         *
+         * @param eventLoop NioEventLoop
+         * @param promise 结果封装，外部可以对结果进行监听，异步操作
+         */
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
             ObjectUtil.checkNotNull(eventLoop, "eventLoop");
+            // 房子当前channel重复注册
             if (isRegistered()) {
+                // 设置结果为失败，调用监听者执行失败的逻辑
                 promise.setFailure(new IllegalStateException("registered to an event loop already"));
                 return;
             }
@@ -476,13 +483,21 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         new IllegalStateException("incompatible event loop type: " + eventLoop.getClass().getName()));
                 return;
             }
-
+            /**
+             * !!!!!!!!!!!!!!!!!!!!!!!!!!
+             * unsafe有两个作用域，一个是自己的-->AbstractChannel
+             * 另一个 是外部的作用域，通过this
+             * 绑定关系，后续的事件或者任务都会依赖当前的EventLoop进行处理。后面就知道为啥要绑定了
+             */
             AbstractChannel.this.eventLoop = eventLoop;
 
+            // 判断当前线程是否为enentLoop自己这个线程,如果是就自己去执行register0了，如果不是就提交到工作队列了eventLoop.execute
+            // 好处在于线程安全，保证了并发性
             if (eventLoop.inEventLoop()) {
                 register0(promise);
             } else {
                 try {
+                    // 将注册任务提交到enventLoop队列，带着promise过去
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {

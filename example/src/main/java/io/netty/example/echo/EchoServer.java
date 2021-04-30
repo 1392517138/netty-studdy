@@ -70,6 +70,8 @@ public final class EchoServer {
                     /**
                      * ChannelInitializer它不是一个handler，只是通过适配器实现了Hanler接口
                      * 它存在的意义就是为了延迟初始化pipeline,当pipeline上的channel激活以后。真正添加handler才执行
+                     * 添加之后我们的pipeline长这个样子：head <--> ChannelInitializer <--> tail
+                     * 后面合适的时候这个"zip" ChannelInitializer 会将添加的handler解压出来添加到pipeline中，并且将自己进行移除
                      */
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override

@@ -86,12 +86,20 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
 
     @Override
     public ChannelFuture register(Channel channel) {
+        // 在注册的时候，把channle封装成了一个DefaultChannelPromise对象
+        // DefaultChannelPromise它其实是一个future一样的东西，可以向里面去添加监听者。当关联的事件完成后，会主动调用监听者
+        // promise -> future，future是对jdk层面的扩展。
         return register(new DefaultChannelPromise(channel, this));
     }
 
     @Override
     public ChannelFuture register(final ChannelPromise promise) {
         ObjectUtil.checkNotNull(promise, "promise");
+        /**
+         * promise.channel() 当前的channels是NioServerSocketChannel
+         * unsafe:NioMessageUnsafe
+         * register:{@link io.netty.channel.AbstractChannel.AbstractUnsafe}
+         */
         promise.channel().unsafe().register(this, promise);
         return promise;
     }

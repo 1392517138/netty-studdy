@@ -265,6 +265,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // 在里面通过反射创建channel
         final ChannelFuture regFuture = initAndRegister();
 
+
         final Channel channel = regFuture.channel();
 
         if (regFuture.cause() != null) {
@@ -321,6 +322,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
              *  NioServerSocketChannel 这里也上看这个类，{@link io.netty.channel.socket.nio.NioServerSocketChannel}
              *  在NioServerSocketChannel初始化完后，去设置一些用户设置的东西
              */
+            // 主要的一部，给当前服务端pipeline添加一个ci
             init(channel);
         } catch (Throwable t) {
             if (channel != null) {
@@ -337,8 +339,14 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
          *          拿到的是boss组，选择一个eventloop去注册
          *          unsafe.register
          *          tips: feature是可以添加监听者的。这个regFuture会返回出去 {@link AbstractBootstrap}
+         *  1. config():config = new ServerBootstrapConfig(this); this={@link ServerBootstrap}
+         *  2. group():返回的boss组 {@link AbstractBootstrap#group}， 它是在之前设置{@code b.group(bossGroup, workerGroup),
+         *          {@link ServerBootstrap#group(EventLoopGroup, EventLoopGroup)} )}super.group(parentGroup);}里设置的
          */
+        // nioEventLoopGroup.register
+        // regFuture就是注册相关的promise实例
         ChannelFuture regFuture = config().group().register(channel);
+
         if (regFuture.cause() != null) {
             if (channel.isRegistered()) {
                 channel.close();
