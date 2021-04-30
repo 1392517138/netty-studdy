@@ -310,6 +310,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
              *  这个channelFactory是之前的{@code b.channel{}里进行绑定了factory }{@link io.netty.channel.ReflectiveChannelFactory}
              *  {@link ReflectiveChannelFactory#newChannel()}，这个构造器是{@code b.channel(NioServerSocketChannel.class)}
              *  {@link NioServerSocketChannel#NioServerSocketChannel()}
+             *  1.服务端Channel内部会创建出来Pipeline
+             *  2.pipleline有两个默认的处理器，分别是head和tail
+             *  3.配置Channel是非阻塞的
+             *  4.保存感兴趣的事件类型为:Accept
+             *  5.创建出来NioServerChannel Unsafe对象，{@link io.netty.channel.nio.AbstractNioMessageChannel.NioMessageUnsafe}
               */
             channel = channelFactory.newChannel();
             /**

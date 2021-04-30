@@ -39,6 +39,9 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
      * @see AbstractNioChannel#AbstractNioChannel(Channel, SelectableChannel, int)
      */
     protected AbstractNioMessageChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
+        //1. null
+        //2. jdk层面的ServerSocketChannel
+        //3. 因为是服务端，对accept事件感兴趣
         super(parent, ch, readInterestOp);
     }
 

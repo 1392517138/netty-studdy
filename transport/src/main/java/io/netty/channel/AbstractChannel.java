@@ -18,6 +18,7 @@ package io.netty.channel;
 import io.netty.buffer.ByteBufAllocator;
 import io.netty.channel.socket.ChannelOutputShutdownEvent;
 import io.netty.channel.socket.ChannelOutputShutdownException;
+import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.DefaultAttributeMap;
 import io.netty.util.ReferenceCountUtil;
 import io.netty.util.internal.ObjectUtil;
@@ -70,10 +71,22 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     protected AbstractChannel(Channel parent) {
         this.parent = parent;
+        // 每个channel实例创建一个channelId对象
         id = newId();
-
+        /**
+         * 服务端时：NioServerSocketChannle，它对unsafe实例是:
+         * {@link NioSocketChannel.NioSocketChannelUnsafe}
+         */
         unsafe = newUnsafe();
         //Default..pipeline
+        /**
+         * 创建出来当前Channel内部的pipeline管道 {@link DefaultChannelPipeline}
+         * 会有两个默认的处理器
+         * tail = new TailContext(this);
+         * head = new HeadContext(this);
+         * head < -- > tail
+         *
+         */
         pipeline = newChannelPipeline();
     }
 
