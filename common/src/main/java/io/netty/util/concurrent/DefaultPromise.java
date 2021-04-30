@@ -400,6 +400,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
 
     @Override
     public Promise<V> sync() throws InterruptedException {
+        // 让主线程陷入阻塞状态
         await();
         rethrowIfFailed();
         return this;

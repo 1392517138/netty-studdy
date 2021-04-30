@@ -16,11 +16,7 @@
 package io.netty.example.echo;
 
 import io.netty.bootstrap.ServerBootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelPipeline;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
@@ -92,7 +88,11 @@ public final class EchoServer {
              *              bind返回的是channelPromise
              * {@link io.netty.channel.ChannelPromise}
              */
-            ChannelFuture f = b.bind(PORT).sync();
+            ChannelFuture f = b.bind(PORT) // 与绑定相关的promise对象
+                    /**
+                     * {@link DefaultChannelPromise#sync()}
+                     */
+                    .sync();
 
             // Wait until the server socket is closed.
             f.channel().closeFuture().sync();

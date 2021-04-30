@@ -262,7 +262,8 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     }
 
     private ChannelFuture doBind(final SocketAddress localAddress) {
-        // 在里面通过反射创建channel
+        // 在里面通过反射创建channel。关联的任务是register0这个任务
+        // register0这个任务被扔到了channel相关的enventLoop队列了
         final ChannelFuture regFuture = initAndRegister();
 
 
@@ -272,15 +273,18 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             return regFuture;
         }
 
+        // 当register0已经被执行完后，regFuture就是Done的状态
         if (regFuture.isDone()) {
             // At this point we know that the registration was complete and successful.
             ChannelPromise promise = channel.newPromise();
             doBind0(regFuture, channel, localAddress, promise);
             return promise;
         } else {
+            // 加上监听者
             // Registration future is almost always fulfilled already, but just in case it's not.
             final PendingRegistrationPromise promise = new PendingRegistrationPromise(channel);
-            // 来这里添加listener
+            // 来这里添加listener,去处理
+            // !!!!!!!监听者线程是enventLoop线程，不是主线程，主线程只是加了这么一个东西
             regFuture.addListener(new ChannelFutureListener() {
                 @Override
                 public void operationComplete(ChannelFuture future) throws Exception {
@@ -298,6 +302,10 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                     }
                 }
             });
+            // 主线程返回一个与bind操作相关的promise对象。
+            /**
+             * {@link io.netty.example.echo.EchoServer#main(String[])}的sync
+             */
             return promise;
         }
     }
