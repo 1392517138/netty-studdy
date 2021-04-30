@@ -67,6 +67,10 @@ public final class EchoServer {
                     // 配置server端的pipeline处理器。后续创建出NioServerChannel后，会把handler加入到pipeline中
              .handler(new LoggingHandler(LogLevel.INFO))
                     // 配置服务端上连接进来的客户端
+                    /**
+                     * ChannelInitializer它不是一个handler，只是通过适配器实现了Hanler接口
+                     * 它存在的意义就是为了延迟初始化pipeline,当pipeline上的channel激活以后。真正添加handler才执行
+                     */
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {
