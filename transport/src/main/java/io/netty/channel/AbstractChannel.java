@@ -21,6 +21,7 @@ import io.netty.channel.socket.ChannelOutputShutdownException;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.DefaultAttributeMap;
 import io.netty.util.ReferenceCountUtil;
+import io.netty.util.concurrent.SingleThreadEventExecutor;
 import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.UnstableApi;
@@ -494,10 +495,17 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             // 判断当前线程是否为enentLoop自己这个线程,如果是就自己去执行register0了，如果不是就提交到工作队列了eventLoop.execute
             // 好处在于线程安全，保证了并发性
             if (eventLoop.inEventLoop()) {
+                // 真正的register
                 register0(promise);
             } else {
                 try {
                     // 将注册任务提交到enventLoop队列，带着promise过去
+                    /**
+                     *  來看一下enventLoop创建线程的时机
+                     * {@link SingleThreadEventLoop#execute(Runnable)}
+                     * 在这里启动{@link io.netty.util.concurrent.SingleThreadEventExecutor#execute(Runnable, boolean)}中的startThread
+                     * startThread:{@link SingleThreadEventExecutor#startThread()}
+                     */
                     eventLoop.execute(new Runnable() {
                         @Override
                         public void run() {

@@ -87,6 +87,7 @@ public final class EchoServer {
              *              点进去bind方法，查看server流程
              *              bind返回的是channelPromise
              * {@link io.netty.channel.ChannelPromise}
+             *
              */
             ChannelFuture f = b.bind(PORT) // 与绑定相关的promise对象
                     /**

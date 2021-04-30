@@ -15,6 +15,9 @@
  */
 package io.netty.util.concurrent;
 
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.ChannelPromise;
+import io.netty.channel.EventLoop;
 import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.PlatformDependent;
 import io.netty.util.internal.SystemPropertyUtil;
@@ -831,9 +834,16 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     }
 
     private void execute(Runnable task, boolean immediate) {
+        /**
+         *          判断当前线程是否为eventLoop的线程，这里为false,因为进来的是主线程
+         *          {@link io.netty.channel.AbstractChannel.AbstractUnsafe#register(io.netty.channel.EventLoop, io.netty.channel.ChannelPromise)}
+         */
         boolean inEventLoop = inEventLoop();
+        // 加入到taskQueue中
         addTask(task);
+        // 这里取反就是true了
         if (!inEventLoop) {
+            // 在这里启动线程
             startThread();
             if (isShutdown()) {
                 boolean reject = false;
@@ -947,10 +957,13 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     private static final long SCHEDULE_PURGE_INTERVAL = TimeUnit.SECONDS.toNanos(1);
 
     private void startThread() {
+        // 判断当前线程是否是已经启动的状态
         if (state == ST_NOT_STARTED) {
+            // 通过cas的方式设置当前线程为启动状态
             if (STATE_UPDATER.compareAndSet(this, ST_NOT_STARTED, ST_STARTED)) {
                 boolean success = false;
                 try {
+                    // 在这里！！！！！！！
                     doStartThread();
                     success = true;
                 } finally {
@@ -982,6 +995,31 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
 
     private void doStartThread() {
         assert thread == null;
+        /**
+         * 这个executor是什么呢？
+         * 是我们的线程工厂，这个线程工厂会创建一个线程用于执行这个任务，
+         * {@link MultithreadEventExecutorGroup#MultithreadEventExecutorGroup(int, Executor, EventExecutorChooserFactory, Object...)}
+         *
+         * {@code executor = new ThreadPerTaskExecutor(newDefaultThreadFactory());
+         *          children[i] = newChild(executor, args);
+         * }每一个child都会对应一个executor
+         *
+         * 这里的execute就是线程工程创建线程的execute方法
+         * {@code
+         * public final class ThreadPerTaskExecutor implements Executor {
+         *     private final ThreadFactory threadFactory;
+         *
+         *     public ThreadPerTaskExecutor(ThreadFactory threadFactory) {
+         *         this.threadFactory = ObjectUtil.checkNotNull(threadFactory, "threadFactory");
+         *     }
+         *
+         *     @Override
+         *     public void execute(Runnable command) {
+         *         threadFactory.newThread(command).start();
+         *     }
+         * }
+         * }
+         */
         executor.execute(new Runnable() {
             @Override
             public void run() {

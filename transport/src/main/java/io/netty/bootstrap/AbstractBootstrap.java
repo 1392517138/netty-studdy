@@ -264,6 +264,11 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
     private ChannelFuture doBind(final SocketAddress localAddress) {
         // 在里面通过反射创建channel。关联的任务是register0这个任务
         // register0这个任务被扔到了channel相关的enventLoop队列了
+        /**
+         * 看這個，真正的register
+         * {@link io.netty.channel.AbstractChannel.AbstractUnsafe#register(EventLoop, ChannelPromise)}
+         * {@link io.netty.channel.AbstractChannel.AbstractUnsafe#register0(ChannelPromise)}
+         */
         final ChannelFuture regFuture = initAndRegister();
 
 
