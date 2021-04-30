@@ -76,6 +76,9 @@ public abstract class AbstractNioChannel extends AbstractChannel {
      * @param ch                the underlying {@link SelectableChannel} on which it operates
      * @param readInterestOp    the ops to set to receive data from the {@link SelectableChannel}
      */
+    //1. null
+    //2. jdk层面的ServerSocketChannel
+    //3. 因为是服务端，对accept事件感兴趣
     protected AbstractNioChannel(Channel parent, SelectableChannel ch, int readInterestOp) {
         // 创建Unsafe实例，这是netty自己的，做了一些封装
         super(parent);
@@ -83,6 +86,7 @@ public abstract class AbstractNioChannel extends AbstractChannel {
         this.ch = ch;
         this.readInterestOp = readInterestOp;
         try {
+            // 在这里配置成了非阻塞
             ch.configureBlocking(false);
         } catch (IOException e) {
             try {
