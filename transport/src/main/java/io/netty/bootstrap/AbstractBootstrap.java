@@ -26,6 +26,7 @@ import io.netty.channel.DefaultChannelPromise;
 import io.netty.channel.EventLoop;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.ReflectiveChannelFactory;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.util.AttributeKey;
 import io.netty.util.concurrent.EventExecutor;
 import io.netty.util.concurrent.GlobalEventExecutor;
@@ -306,6 +307,9 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
             // 通过反射创建.这里构建的其实是之前设置的NioServerSocketChannel
             /**
              *  NioServerSocketChannel 做了许多事情，{@link io.netty.channel.socket.nio.NioServerSocketChannel}
+             *  这个channelFactory是之前的{@code b.channel{}里进行绑定了factory }{@link io.netty.channel.ReflectiveChannelFactory}
+             *  {@link ReflectiveChannelFactory#newChannel()}，这个构造器是{@code b.channel(NioServerSocketChannel.class)}
+             *  {@link NioServerSocketChannel#NioServerSocketChannel()}
               */
             channel = channelFactory.newChannel();
             /**

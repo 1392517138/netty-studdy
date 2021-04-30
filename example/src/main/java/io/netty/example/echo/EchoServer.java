@@ -54,10 +54,19 @@ public final class EchoServer {
         final EchoServerHandler serverHandler = new EchoServerHandler();
         try {
             ServerBootstrap b = new ServerBootstrap();
+            // baseGroup是ServerChannel使用
+            // workerGroup是由Server产生的客户端channel使用
             b.group(bossGroup, workerGroup)
+                    // 设置服务端channel类
+                    /**
+                     * 里面绑定了一个 {@link io.netty.channel.ReflectiveChannelFactory}
+                     */
              .channel(NioServerSocketChannel.class)
+                    // 保存server端的信息
              .option(ChannelOption.SO_BACKLOG, 100)
+                    // 配置server端的pipeline处理器。后续创建出NioServerChannel后，会把handler加入到pipeline中
              .handler(new LoggingHandler(LogLevel.INFO))
+                    // 配置服务端上连接进来的客户端
              .childHandler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  public void initChannel(SocketChannel ch) throws Exception {
