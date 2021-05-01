@@ -100,6 +100,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
      * You either use this or {@link #channelFactory(io.netty.channel.ChannelFactory)} if your
      * {@link Channel} implementation has no no-args constructor.
      */
+    // 给AbstractBootStrap的factory赋值
     public B channel(Class<? extends C> channelClass) {
         return channelFactory(new ReflectiveChannelFactory<C>(
                 ObjectUtil.checkNotNull(channelClass, "channelClass")
@@ -265,7 +266,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
         // 在里面通过反射创建channel。关联的任务是register0这个任务
         // register0这个任务被扔到了channel相关的enventLoop队列了
         /**
-         * 看這個，真正的register
+         * 看這個，真正的register。正如其名，init 和 register非常重要
          * {@link io.netty.channel.AbstractChannel.AbstractUnsafe#register(EventLoop, ChannelPromise)}
          * {@link io.netty.channel.AbstractChannel.AbstractUnsafe#register0(ChannelPromise)}
          */
@@ -302,7 +303,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
                         // Registration was successful, so set the correct executor to use.
                         // See https://github.com/netty/netty/issues/2586
                         promise.registered();
-
+                        // 又去提交绑定任务
                         doBind0(regFuture, channel, localAddress, promise);
                     }
                 }
@@ -388,6 +389,7 @@ public abstract class AbstractBootstrap<B extends AbstractBootstrap<B, C>, C ext
 
         // This method is invoked before channelRegistered() is triggered.  Give user handlers a chance to set up
         // the pipeline in its channelRegistered() implementation.
+        // 异步任务3 ， 注册成功后，回去绑定端口
         channel.eventLoop().execute(new Runnable() {
             @Override
             public void run() {

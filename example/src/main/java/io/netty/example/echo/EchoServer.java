@@ -74,13 +74,14 @@ public final class EchoServer {
                  public void initChannel(SocketChannel ch) throws Exception {
                      ChannelPipeline p = ch.pipeline();
                      if (sslCtx != null) {
+                         // 看一下addLast
                          p.addLast(sslCtx.newHandler(ch.alloc()));
                      }
                      //p.addLast(new LoggingHandler(LogLevel.INFO));
                      p.addLast(serverHandler);
                  }
              });
-
+            // 前面相当于都是给bootStrap设置一些配置，包括了abstractBootStrap和ServerBootStrap
 
             /**
              *        Start the server.

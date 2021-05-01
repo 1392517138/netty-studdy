@@ -67,6 +67,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
      * @throws Exception    is thrown if an error occurs. In that case it will be handled by
      *                      {@link #exceptionCaught(ChannelHandlerContext, Throwable)} which will by default close
      *                      the {@link Channel}.
+     *                      /**
+     *
+     * {@link ServerBootstrap#init(Channel)}
+     *
      */
     protected abstract void initChannel(C ch) throws Exception;
 
@@ -109,8 +113,23 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
             // The good thing about calling initChannel(...) in handlerAdded(...) is that there will be no ordering
             // surprises if a ChannelInitializer will add another ChannelInitializer. This is as all handlers
             // will be added in the expected order.
+            /**
+             *              这里会执行initChannel方法，就是我们实现的
+             *              {@code .childHandler(new ChannelInitializer<SocketChannel>() {
+             *                  @Override
+             *                  public void initChannel(SocketChannel ch) throws Exception {
+             *                      ChannelPipeline p = ch.pipeline();
+             *                      if (sslCtx != null) {
+             *                          // 看一下addLast
+             *                          p.addLast(sslCtx.newHandler(ch.alloc()));
+             *                      }
+             *                      //p.addLast(new LoggingHandler(LogLevel.INFO));
+             *                      p.addLast(serverHandler);
+             *                  }
+             *              });}
+             */
             if (initChannel(ctx)) {
-
+                // 做完拆包的动作之后，又把自己抹除掉
                 // We are done with init the Channel, removing the initializer now.
                 removeState(ctx);
             }
@@ -126,6 +145,10 @@ public abstract class ChannelInitializer<C extends Channel> extends ChannelInbou
     private boolean initChannel(ChannelHandlerContext ctx) throws Exception {
         if (initMap.add(ctx)) { // Guard against re-entrance.
             try {
+                /**
+                 * 这个channel就是nioServerSocketChannel
+                 * {@link ServerBootstrap#init(Channel)}
+                 */
                 initChannel((C) ctx.channel());
             } catch (Throwable cause) {
                 // Explicitly call exceptionCaught(...) as we removed the handler before calling initChannel(...).

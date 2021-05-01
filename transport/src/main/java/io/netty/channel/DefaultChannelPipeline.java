@@ -195,6 +195,15 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return addLast(null, name, handler);
     }
 
+    /**
+     *
+     * @param group    the {@link EventExecutorGroup} which will be used to execute the {@link ChannelHandler}
+     *                 methods
+     * @param name     the name of the handler to append
+     * @param handler  the handler to append
+     * pipeline 包含了 ctx 包含了 handler
+     * @return
+     */
     @Override
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
         final AbstractChannelHandlerContext newCtx;
@@ -203,13 +212,16 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
             newCtx = newContext(group, filterName(name, handler), handler);
 
+            // 放到tail的前一个位置
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
             if (!registered) {
+                //1. 设置成add_pending状态
                 newCtx.setAddPending();
+                //2. 包装成一个task进行入队
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
@@ -606,6 +618,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     private void callHandlerAdded0(final AbstractChannelHandlerContext ctx) {
         try {
+            //1. 将ctx的状态设置为addCompleted状态
             ctx.callHandlerAdded();
         } catch (Throwable t) {
             boolean removed = false;
@@ -1101,7 +1114,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
             // This Channel itself was registered.
             registered = true;
-
+            // 拿到pipeline里的head结点
             pendingHandlerCallbackHead = this.pendingHandlerCallbackHead;
             // Null out so it can be GC'ed.
             this.pendingHandlerCallbackHead = null;
@@ -1111,6 +1124,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         // holding the lock and so produce a deadlock if handlerAdded(...) will try to add another handler from outside
         // the EventLoop.
         PendingHandlerCallback task = pendingHandlerCallbackHead;
+        // 拿到之后，去执行每个task的execute方法，这个由eventloop去做
         while (task != null) {
             task.execute();
             task = task.next;
@@ -1458,8 +1472,12 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
         @Override
         void execute() {
+            // 拿到eventloop
             EventExecutor executor = ctx.executor();
             if (executor.inEventLoop()) {
+                /**
+                 *
+                 */
                 callHandlerAdded0(ctx);
             } else {
                 try {

@@ -16,11 +16,14 @@
 package io.netty.channel;
 
 import io.netty.buffer.ByteBufAllocator;
+import io.netty.channel.nio.AbstractNioChannel;
 import io.netty.channel.socket.ChannelOutputShutdownEvent;
 import io.netty.channel.socket.ChannelOutputShutdownException;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.util.DefaultAttributeMap;
 import io.netty.util.ReferenceCountUtil;
+import io.netty.util.concurrent.DefaultPromise;
 import io.netty.util.concurrent.SingleThreadEventExecutor;
 import io.netty.util.internal.ObjectUtil;
 import io.netty.util.internal.PlatformDependent;
@@ -469,6 +472,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
          *
          * @param eventLoop NioEventLoop
          * @param promise 结果封装，外部可以对结果进行监听，异步操作
+         *
          */
         @Override
         public final void register(EventLoop eventLoop, final ChannelPromise promise) {
@@ -523,6 +527,11 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
             }
         }
 
+        /**
+         * 这个方法一定是当前Channel关联的EventLoop线程执行
+         * 参数：promise,表示注册结果，外部可以向它注册监听者来完成注册后的逻辑
+         * @param promise
+         */
         private void register0(ChannelPromise promise) {
             try {
                 // check if the channel is still open as it could be closed in the mean time when the register
@@ -531,18 +540,52 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                     return;
                 }
                 boolean firstRegistration = neverRegistered;
+                /**
+                 * {@link AbstractNioChannel#doRegister()}
+                 */
                 doRegister();
+
                 neverRegistered = false;
+                // 表示当前channel已经被注册到多路复用器了
                 registered = true;
 
                 // Ensure we call handlerAdded(...) before we actually notify the promise. This is needed as the
                 // user may already fire events through the pipeline in the ChannelFutureListener.
+                /**
+                 *  这里进行了拆包的动作，也就是之前设置的
+                 * {@code
+                 * .childHandler(new ChannelInitializer<SocketChannel>() {
+                 *                  @Override
+                 *                  public void initChannel(SocketChannel ch) throws Exception {
+                 *                      ChannelPipeline p = ch.pipeline();
+                 *                      if (sslCtx != null) {
+                 *                          p.addLast(sslCtx.newHandler(ch.alloc()));
+                 *                      }
+                 *                      //p.addLast(new LoggingHandler(LogLevel.INFO));
+                 *                      p.addLast(serverHandler);
+                 *                  }
+                 *              });
+                 * }
+                 */
                 pipeline.invokeHandlerAddedIfNeeded();
 
+                /**
+                 * 设置结果为成功，也就是之前的regFuture，有listenner
+                 * {@link DefaultPromise#notifyListeners()}
+                 * bind时会向eventloop线程提交任务
+                 */
                 safeSetSuccess(promise);
+
+                // 向pipeline中添加一个事件(注册完成),关注的handler可以做一些事情
                 pipeline.fireChannelRegistered();
                 // Only fire a channelActive if the channel has never been registered. This prevents firing
                 // multiple channel actives if the channel is deregistered and re-registered.
+                /***
+                 * {@link NioServerSocketChannel#isActive()}
+                 * 这一步的时候，绑定一定是没有完成的
+                 * 这一步是不成立的
+                 * 绑定完成后才算active状态
+                  */
                 if (isActive()) {
                     if (firstRegistration) {
                         pipeline.fireChannelActive();
@@ -582,7 +625,10 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                         "is not bound to a wildcard address; binding to a non-wildcard " +
                         "address (" + localAddress + ") anyway as requested.");
             }
-
+            /**
+             *              绑定完成后才是active状态，现在还是false
+             *              {@link NioServerSocketChannel#doBind(SocketAddress)}
+             */
             boolean wasActive = isActive();
             try {
                 doBind(localAddress);
@@ -591,16 +637,26 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                 closeIfClosed();
                 return;
             }
-
+            // 条件一： !wasActive = true
+            // 条件二： isActive = true
             if (!wasActive && isActive()) {
+                // 这里再次向eventLoop提交任务，任务4
                 invokeLater(new Runnable() {
                     @Override
                     public void run() {
+                        // 这是一个In类型的事件
+                        // headConetxt会响应active事件，再次向当前channel的pipeline发起read事件
+                        // read事件，就会修改channel在selector上注册感兴趣的事件，为accept
                         pipeline.fireChannelActive();
                     }
                 });
             }
-
+            /**
+             *              设置绑定结果，我们的主线程还在等待绑定结果
+             *              在进行wait操作，这一步绑定完成后，会将其唤醒
+             * {@code ChannelFuture f = b.bind(PORT) // 与绑定相关的promise对象
+             *                     .sync();}
+             */
             safeSetSuccess(promise);
         }
 
@@ -1019,6 +1075,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
          * Marks the specified {@code promise} as success.  If the {@code promise} is done already, log a message.
          */
         protected final void safeSetSuccess(ChannelPromise promise) {
+            // 这个trySuccess
             if (!(promise instanceof VoidChannelPromise) && !promise.trySuccess()) {
                 logger.warn("Failed to mark a promise as success because it is done already: {}", promise);
             }

@@ -481,6 +481,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
     }
 
     private void notifyListeners() {
+        // 拿到eventLoop线程，去执行回调
         EventExecutor executor = executor();
         if (executor.inEventLoop()) {
             final InternalThreadLocalMap threadLocals = InternalThreadLocalMap.get();
@@ -602,6 +603,7 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
     }
 
     private boolean setSuccess0(V result) {
+        // setValue0 点进去
         return setValue0(result == null ? SUCCESS : result);
     }
 
@@ -612,7 +614,9 @@ public class DefaultPromise<V> extends AbstractFuture<V> implements Promise<V> {
     private boolean setValue0(Object objResult) {
         if (RESULT_UPDATER.compareAndSet(this, null, objResult) ||
             RESULT_UPDATER.compareAndSet(this, UNCANCELLABLE, objResult)) {
+            // 这里去唤醒阻塞的
             if (checkNotifyWaiters()) {
+                // 这里
                 notifyListeners();
             }
             return true;

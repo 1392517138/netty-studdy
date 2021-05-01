@@ -41,6 +41,8 @@ import java.util.concurrent.TimeUnit;
  * {@link Bootstrap} sub-class which allows easy bootstrap of {@link ServerChannel}
  *
  */
+// AbstractBootstrap包含父bootstrap的options和handler
+// ServerBootstrap注意就是子类的了childGroup，childHandler
 public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerChannel> {
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(ServerBootstrap.class);
@@ -151,9 +153,11 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     pipeline.addLast(handler);
                 }
 
+                // 异步任务2
                 ch.eventLoop().execute(new Runnable() {
                     @Override
                     public void run() {
+                        // 加了一个处理器
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
