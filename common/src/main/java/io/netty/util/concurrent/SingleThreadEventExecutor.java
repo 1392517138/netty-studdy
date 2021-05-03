@@ -289,14 +289,21 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         if (scheduledTaskQueue == null || scheduledTaskQueue.isEmpty()) {
             return true;
         }
+        // 与系统相关的当前时间
+        // 需要当前时间是因为我们的shedule是带时间的，它有一个时间点
+        // 我们把符合时间的任务拿出来
         long nanoTime = AbstractScheduledEventExecutor.nanoTime();
         for (;;) {
+            // 获取优先级队列队头结点
+            // 只有任务确实该执行时才返回该任务，否则为null
             Runnable scheduledTask = pollScheduledTask(nanoTime);
             if (scheduledTask == null) {
                 return true;
             }
+            // 加到普通队列里面去
             if (!taskQueue.offer(scheduledTask)) {
                 // No space left in the task queue add it back to the scheduledTaskQueue so we pick it up again.
+                // 添加失败，长度不够，又放回去
                 scheduledTaskQueue.add((ScheduledFutureTask<?>) scheduledTask);
                 return false;
             }
@@ -376,6 +383,8 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * Poll all tasks from the task queue and run them via {@link Runnable#run()} method.
      *
      * @return {@code true} if and only if at least one task was run
+     * 注意有两种任务：
+     * 本地任务和需要调度的任务
      */
     protected boolean runAllTasks() {
         assert inEventLoop();
@@ -383,12 +392,21 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
         boolean ranAtLeastOne = false;
 
         do {
+            /**
+             *  让scheduled任务转移到偶同 任务队列里面去！！
+             *  fetchaALl表示被调度的任务有没有转移完
+             *  为什么要转移呢？
+             *  比如我们的schedule队列有10000个，但是执行的队列taskQ只有10个这么长
+             *  那么不能够一下将10000个全部转移过来，需要一个是否转移完的变量在do while里进行执行
+             */
             fetchedAll = fetchFromScheduledTaskQueue();
+
             if (runAllTasksFrom(taskQueue)) {
                 ranAtLeastOne = true;
             }
         } while (!fetchedAll); // keep on processing until we fetched all scheduled tasks.
 
+        // 执行到这，需要调度的任务和普通任务都执行完了
         if (ranAtLeastOne) {
             lastExecutionTime = ScheduledFutureTask.nanoTime();
         }
@@ -430,10 +448,12 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
      * @return {@code true} if at least one task was executed.
      */
     protected final boolean runAllTasksFrom(Queue<Runnable> taskQueue) {
+        // 拿任务
         Runnable task = pollTaskFrom(taskQueue);
         if (task == null) {
             return false;
         }
+        // 执行队列的任务
         for (;;) {
             safeExecute(task);
             task = pollTaskFrom(taskQueue);
@@ -466,27 +486,45 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
     /**
      * Poll all tasks from the task queue and run them via {@link Runnable#run()} method.  This method stops running
      * the tasks in the task queue and returns if it ran longer than {@code timeoutNanos}.
+     * @param timeoutNanos 表示执行任务最多可用的时长
+     *                     传入0代表最多执行64个任务
      */
     protected boolean runAllTasks(long timeoutNanos) {
+        // 转移调度任务到普通任务队列
         fetchFromScheduledTaskQueue();
         Runnable task = pollTask();
         if (task == null) {
             afterRunningAllTasks();
             return false;
         }
-
+        // 任务的截止时间，这是一个准确的时间点
         final long deadline = timeoutNanos > 0 ? ScheduledFutureTask.nanoTime() + timeoutNanos : 0;
         long runTasks = 0;
         long lastExecutionTime;
         for (;;) {
+            // 执行任务，task.run()
             safeExecute(task);
 
             runTasks ++;
 
             // Check timeout every 64 tasks because nanoTime() is relatively expensive.
             // XXX: Hard-coded value - will make it configurable if it is really a problem.
+            /**
+             *              0x3f -> 63 -> 11 1111
+             *              64 -> 1000 0000
+             *              0100 0000
+             *            & 0011 1111
+             *            ___________
+             *              0000 0000
+             *
+             *         128  1000 0000
+             *         192  1100 0000
+             * 结论：每64会成立一次。会检查一下任务是否还可继续执行的逻辑
+             *
+             */
             if ((runTasks & 0x3F) == 0) {
                 lastExecutionTime = ScheduledFutureTask.nanoTime();
+                // deadline为0，最多执行64个任务
                 if (lastExecutionTime >= deadline) {
                     break;
                 }
@@ -1031,6 +1069,10 @@ public abstract class SingleThreadEventExecutor extends AbstractScheduledEventEx
                 boolean success = false;
                 updateLastExecutionTime();
                 try {
+                    /**
+                     * this:当前对象，执行run方法，点进去看下
+                     * {@link io.netty.channel.nio.NioEventLoop#run()}
+                     */
                     SingleThreadEventExecutor.this.run();
                     success = true;
                 } catch (Throwable t) {

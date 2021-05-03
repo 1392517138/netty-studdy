@@ -126,10 +126,14 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
     protected final Runnable pollScheduledTask(long nanoTime) {
         assert inEventLoop();
 
+        // 优先级队列
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
+        // 如果 > 0 表示还没有到时间点
         if (scheduledTask == null || scheduledTask.deadlineNanos() - nanoTime > 0) {
             return null;
         }
+        // scheduledTaskQueue 它是一个优先级队列队列，靠前的肯定是时间靠前的
+        // 把它移出来，然后返回
         scheduledTaskQueue.remove();
         scheduledTask.setConsumed();
         return scheduledTask;
@@ -149,10 +153,13 @@ public abstract class AbstractScheduledEventExecutor extends AbstractEventExecut
      */
     protected final long nextScheduledTaskDeadlineNanos() {
         ScheduledFutureTask<?> scheduledTask = peekScheduledTask();
+        // 拿到队头任务的截止时间，没有就返回-1
         return scheduledTask != null ? scheduledTask.deadlineNanos() : -1;
     }
 
     final ScheduledFutureTask<?> peekScheduledTask() {
+        // PriorityQueue<ScheduledFutureTask<?>> scheduledTaskQueue; 优先级队列
+        // 只拿，不出队
         Queue<ScheduledFutureTask<?>> scheduledTaskQueue = this.scheduledTaskQueue;
         return scheduledTaskQueue != null ? scheduledTaskQueue.peek() : null;
     }
