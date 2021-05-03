@@ -106,6 +106,7 @@ public final class SocketUtils {
     public static SocketChannel accept(final ServerSocketChannel serverSocketChannel) throws IOException {
         try {
             return AccessController.doPrivileged(new PrivilegedExceptionAction<SocketChannel>() {
+                // 调用accpet
                 @Override
                 public SocketChannel run() throws IOException {
                     return serverSocketChannel.accept();

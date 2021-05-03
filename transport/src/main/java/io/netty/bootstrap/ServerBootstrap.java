@@ -158,6 +158,16 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
                     @Override
                     public void run() {
                         // 加了一个处理器
+                        /**
+                         * 1. ch. 服务端channel
+                         * 2. currentChildGroup. worker线程组
+                         * 3. currentChildHandler 模板代码中配置的childHandler,其实就是一个ChannelInitializer
+                         *    用于初始化客户端pipeline
+                         *      eg:
+                         *          b.childHandler(new ChannelInitializer<SocketChannel>() {...}
+                         * 4. currentChildOptions 模板代码证的childOptions
+                         * 5. currentChildAttrs 模板代码中的childAttrs
+                         */
                         pipeline.addLast(new ServerBootstrapAcceptor(
                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
                     }
@@ -178,6 +188,25 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         }
         return this;
     }
+    /**
+     * 处理客户端channle的核心处理器
+     * 它是什么时候加入进来的呢？在我们bind 的时候会进行initAndRegister，在注册的时候这个ChannelInitializer的init方法中
+     * {@link ServerBootstrap#init(Channel)}
+     *
+     * {@code p.addLast(new ChannelInitializer<Channel>() {
+     *             @Override
+     *             public void initChannel(final Channel ch) {
+     *                 ch.eventLoop().execute(new Runnable() {
+     *                     @Override
+     *                     public void run() {
+     *                         // 加了一个处理器
+     *                         pipeline.addLast(new ServerBootstrapAcceptor(
+     *                                 ch, currentChildGroup, currentChildHandler, currentChildOptions, currentChildAttrs));
+     *                     }
+     *                 });
+     *             }
+     *         });}
+     */
 
     private static class ServerBootstrapAcceptor extends ChannelInboundHandlerAdapter {
 
@@ -190,6 +219,18 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         ServerBootstrapAcceptor(
                 final Channel channel, EventLoopGroup childGroup, ChannelHandler childHandler,
                 Entry<ChannelOption<?>, Object>[] childOptions, Entry<AttributeKey<?>, Object>[] childAttrs) {
+            /**
+             * {@code
+             *1. ch. 服务端channel
+             *2. currentChildGroup. worker线程组
+             *3. currentChildHandler 模板代码中配置的childHandler,其实就是一个ChannelInitializer
+             *   用于初始化客户端pipeline
+             *     eg:
+             *         b.childHandler(new ChannelInitializer<SocketChannel>() {...}
+             *4. currentChildOptions 模板代码证的childOptions
+             *5. currentChildAttrs 模板代码中的childAttrs
+             * }
+             */
             this.childGroup = childGroup;
             this.childHandler = childHandler;
             this.childOptions = childOptions;
@@ -212,13 +253,22 @@ public class ServerBootstrap extends AbstractBootstrap<ServerBootstrap, ServerCh
         @SuppressWarnings("unchecked")
         public void channelRead(ChannelHandlerContext ctx, Object msg) {
             final Channel child = (Channel) msg;
-
+            // 向客户端pipeline中添加一个ci,childHandler是模板代码里的
             child.pipeline().addLast(childHandler);
 
             setChannelOptions(child, childOptions, logger);
             setAttributes(child, childAttrs);
 
             try {
+                // childGroup: worker线程组
+                // 客户端注册逻辑入口,它传的就是NioSocketChannel，服务端的是NioServerSocketChannel
+                /**
+                 * {@link io.netty.channel.MultithreadEventLoopGroup#register(Channel)}
+                 * 1. 从worker组内分配一个nioEventLoop给当前NioSocketChannel使用(ps:NioEventLoop是多个channel共享的)
+                 * 2. 完成底层 socketChannel注册到底层多路复用器
+                 * 3. 向nioSocketChannel pipeline发起active事件，这个事件由head响应，head最终通过unsafe修改当前channel的selectionKey
+                 *    感兴趣事件 包括：read。代表selector帮当前channel监听 读事件
+                 */
                 childGroup.register(child).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture future) throws Exception {

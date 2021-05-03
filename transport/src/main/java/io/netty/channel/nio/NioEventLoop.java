@@ -744,6 +744,7 @@ public final class NioEventLoop extends SingleThreadEventLoop {
         }
     }
 
+    // 也分客户端和服务端
     private void processSelectedKey(SelectionKey k, AbstractNioChannel ch) {
         // 1.NioServerSocketChannel -> NioMessageUnsafe
         // 2.NIoSocketChannel -> NioByteUnsafe

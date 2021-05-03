@@ -86,6 +86,8 @@ public abstract class MultithreadEventLoopGroup extends MultithreadEventExecutor
     @Override
     protected abstract EventLoop newChild(Executor executor, Object... args) throws Exception;
 
+    // 客户端和服务端是同一个入口
+    // 服务端是NioServerSocketChannle，客户端是NioSocketChannel
     @Override
     public ChannelFuture register(Channel channel) {
         /**

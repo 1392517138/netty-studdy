@@ -89,6 +89,22 @@ public abstract class SingleThreadEventLoop extends SingleThreadEventExecutor im
         // 在注册的时候，把channle封装成了一个DefaultChannelPromise对象
         // DefaultChannelPromise它其实是一个future一样的东西，可以向里面去添加监听者。当关联的事件完成后，会主动调用监听者
         // promise -> future，future是对jdk层面的扩展。
+
+        /**
+         * 服务端：
+         * promise.channel() NioServerSocketChannel实例
+         * NioServerSocketChannel.unsafe() 返回的是NioMessageUnsafe
+         * NioMessageUnsafe.register方法
+         * 参数一：NioEventLoop 单线程线程池
+         * 参数二：promise 结果封装...外部可以注册监听进行异步操作
+         *
+         * 客户端：
+         * promise.channel() NioSocketChannel实例
+         * NioServerSocketChannel.unsafe() 返回的是NioByteUnsafe
+         * NioByteUnsafe.register方法
+         * 参数一：NioEventLoop 单线程线程池
+         * 参数二：promise 结果封装...外部可以注册监听进行异步操作
+         */
         return register(new DefaultChannelPromise(channel, this));
     }
 

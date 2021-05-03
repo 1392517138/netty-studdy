@@ -1130,6 +1130,9 @@ public abstract class AbstractByteBuf extends ByteBuf {
     @Override
     public int writeBytes(ScatteringByteChannel in, int length) throws IOException {
         ensureWritable(length);
+        /**
+         * {@link PooledByteBuf#setBytes(int, ScatteringByteChannel, int)}
+         */
         int writtenBytes = setBytes(writerIndex, in, length);
         if (writtenBytes > 0) {
             writerIndex += writtenBytes;
@@ -1140,6 +1143,7 @@ public abstract class AbstractByteBuf extends ByteBuf {
     @Override
     public int writeBytes(FileChannel in, long position, int length) throws IOException {
         ensureWritable(length);
+        // setBytes，还是需要jdk提供的东西
         int writtenBytes = setBytes(writerIndex, in, position, length);
         if (writtenBytes > 0) {
             writerIndex += writtenBytes;

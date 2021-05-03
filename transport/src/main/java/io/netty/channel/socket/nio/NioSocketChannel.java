@@ -15,6 +15,7 @@
  */
 package io.netty.channel.socket.nio;
 
+import io.netty.buffer.AbstractByteBuf;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelException;
@@ -43,6 +44,7 @@ import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketAddress;
 import java.nio.ByteBuffer;
+import java.nio.channels.ScatteringByteChannel;
 import java.nio.channels.SelectionKey;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.spi.SelectorProvider;
@@ -102,6 +104,8 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
      * @param socket    the {@link SocketChannel} which will be used
      */
     public NioSocketChannel(Channel parent, SocketChannel socket) {
+        // 1.NioServerSocketChannle
+        // 2.原声的SocketChannel
         super(parent, socket);
         config = new NioSocketChannelConfig(this, socket.socket());
     }
@@ -347,6 +351,12 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
     protected int doReadBytes(ByteBuf byteBuf) throws Exception {
         final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
         allocHandle.attemptedBytesRead(byteBuf.writableBytes());
+        // 1.jdk层面的SocketChannel
+        // 2.length, 想要读取数据的大小
+        /**
+         * {@link AbstractByteBuf#writeBytes(ScatteringByteChannel, int)}
+         * @return 返回真是从SocketChannel内读取的数据量
+         */
         return byteBuf.writeBytes(javaChannel(), allocHandle.attemptedBytesRead());
     }
 

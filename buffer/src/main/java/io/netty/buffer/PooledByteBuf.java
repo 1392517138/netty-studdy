@@ -163,6 +163,11 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
     protected final ByteBuffer internalNioBuffer() {
         ByteBuffer tmpNioBuf = this.tmpNioBuf;
         if (tmpNioBuf == null) {
+            /**
+             * {@link PooledDirectByteBuf#newInternalNioBuffer(ByteBuffer)}
+             * 这个memory本身就是一个ByteBuffer对象，是chunk内的一块内存。
+             * chunk是一个真正管理内存的对象
+             */
             this.tmpNioBuf = tmpNioBuf = newInternalNioBuffer(memory);
         } else {
             tmpNioBuf.clear();
@@ -208,6 +213,7 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
     final ByteBuffer _internalNioBuffer(int index, int length, boolean duplicate) {
         index = idx(index);
         ByteBuffer buffer = duplicate ? newInternalNioBuffer(memory) : internalNioBuffer();
+        // 设置limit和position
         buffer.limit(index + length).position(index);
         return buffer;
     }
@@ -281,6 +287,8 @@ abstract class PooledByteBuf<T> extends AbstractReferenceCountedByteBuf {
     @Override
     public final int setBytes(int index, FileChannel in, long position, int length) throws IOException {
         try {
+            // 在internalNioBuffer中已经设置好了byteBuffer对象，已设置好limit和position
+            // 通过read把数据写到这个buffer里面去
             return in.read(internalNioBuffer(index, length), position);
         } catch (ClosedChannelException ignored) {
             return -1;

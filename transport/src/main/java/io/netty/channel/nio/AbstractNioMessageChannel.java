@@ -65,9 +65,13 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
         @Override
         public void read() {
             assert eventLoop().inEventLoop();
+            // 服务端的config对象
             final ChannelConfig config = config();
+            // 服务端端pipeline
             final ChannelPipeline pipeline = pipeline();
+            // 控制读循环，以及预测下次创建的bytebuf大小
             final RecvByteBufAllocator.Handle allocHandle = unsafe().recvBufAllocHandle();
+            // 重置
             allocHandle.reset(config);
 
             boolean closed = false;
@@ -75,28 +79,42 @@ public abstract class AbstractNioMessageChannel extends AbstractNioChannel {
             try {
                 try {
                     do {
+                        /**
+                         *                          读消息循环
+                         * {@link io.netty.channel.socket.nio.NioServerSocketChannel#doReadMessages(List)}
+                         *      正常情况等于1
+                         */
                         int localRead = doReadMessages(readBuf);
                         if (localRead == 0) {
                             break;
                         }
+                        // 条件成立：说明当前服务端处于关闭状态
                         if (localRead < 0) {
                             closed = true;
                             break;
                         }
-
+                        // 更新可读的消息数量
                         allocHandle.incMessagesRead(localRead);
                     } while (allocHandle.continueReading());
                 } catch (Throwable t) {
                     exception = t;
                 }
 
+                // 执行到这里，readBuf里面全都是客户端channel对象
                 int size = readBuf.size();
                 for (int i = 0; i < size; i ++) {
                     readPending = false;
+                    // 向服务端通道传播每个客户端channel对象
+                    /**
+                     * ServerBootstrapAcceptor(handler) 处理客户端channel 核心的处理器
+                     * head --  {@link io.netty.bootstrap.ServerBootstrap.ServerBootstrapAcceptor} -- tail
+                     */
                     pipeline.fireChannelRead(readBuf.get(i));
                 }
+                // 情况..
                 readBuf.clear();
                 allocHandle.readComplete();
+                // 重写设置selector当前server key.让key包含accept，就是让server重新监听acept事件
                 pipeline.fireChannelReadComplete();
 
                 if (exception != null) {

@@ -80,6 +80,9 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
         /**
          * 服务端时：NioServerSocketChannle，它对unsafe实例是:
          * {@link NioSocketChannel.NioSocketChannelUnsafe}
+         *
+         * 客户端时：
+         * {@link io.netty.channel.nio.AbstractNioByteChannel.NioByteUnsafe}
          */
         unsafe = newUnsafe();
         //Default..pipeline
@@ -585,8 +588,12 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
                  * 这一步的时候，绑定一定是没有完成的
                  * 这一步是不成立的
                  * 绑定完成后才算active状态
+                 *
+                 * 但是客户端不一样，客户端会进来。服务端不会走这里
+                 * 服务端是绑定后激活，客户端是注册的时候激活
                   */
                 if (isActive()) {
+                    // firstRegistrations 是 true
                     if (firstRegistration) {
                         pipeline.fireChannelActive();
                     } else if (config().isAutoRead()) {
