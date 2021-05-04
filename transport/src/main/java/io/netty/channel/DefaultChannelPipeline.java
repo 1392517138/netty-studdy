@@ -192,6 +192,9 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline addLast(String name, ChannelHandler handler) {
+        // 1. EventExecutorGroup 事件执行器组
+        // 2. name,一般是null
+        // 3. 业务层面的处理器
         return addLast(null, name, handler);
     }
 
@@ -204,24 +207,38 @@ public class DefaultChannelPipeline implements ChannelPipeline {
      * pipeline 包含了 ctx 包含了 handler
      * @return
      */
+    // 1. EventExecutorGroup 事件执行器组 一般情况是null
+    // 2. name,一般是null
+    // 3. 业务层面的处理器
     @Override
     public final ChannelPipeline addLast(EventExecutorGroup group, String name, ChannelHandler handler) {
+        // 桥梁
         final AbstractChannelHandlerContext newCtx;
         synchronized (this) {
+            // 设置add为true,表示handler已经插入到pp了
             checkMultiplicity(handler);
-
+            // 1. EventExecutorGroup 事件执行器组 一般情况是null
+            // 2. 给当前ctx生成一个名称
             newCtx = newContext(group, filterName(name, handler), handler);
 
-            // 放到tail的前一个位置
+            // 加入到pp中，放到tail的前一个位置
             addLast0(newCtx);
 
             // If the registered is false it means that the channel was not registered on an eventLoop yet.
             // In this case we add the context to the pipeline and add a task that will call
             // ChannelHandler.handlerAdded(...) once the channel is registered.
+            // 条件成立：！registered说明ppl归属的ch还没有注册，还未分配nioeventloop
             if (!registered) {
-                //1. 设置成add_pending状态
+                /**
+                 * 设置成add_pending状态。添加一个任务，等ch注册后再去执行
+                 * 这么设计是因为channelHandler 有handlerAdded handlerRemove，这俩方法传递了一个ctx
+                 * 通过ctx可以拿到executor，如果ch每注册。。那么ch就没有executor，那么
+                 *                      handler.handlerAdded拿到executor可能是null
+                 * null的情况，再提交任务，空指针异常
+                 * ctx默认状态是init,也就是0
+                 */
                 newCtx.setAddPending();
-                //2. 包装成一个task进行入队
+                //2. 包装成一个task进行入队，里面有很多操作！！
                 callHandlerCallbackLater(newCtx, true);
                 return this;
             }
@@ -373,7 +390,10 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return this;
     }
 
+    // handler:业务层面的处理器
     public final ChannelPipeline addLast(ChannelHandler handler) {
+        // 1. 一般是null
+        // 2. 业务层面的处理器
         return addLast(null, handler);
     }
 
@@ -426,6 +446,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
 
     @Override
     public final ChannelPipeline remove(ChannelHandler handler) {
+        // 根据handler获取到包装该handler的ctx
         remove(getContextOrDie(handler));
         return this;
     }
@@ -607,6 +628,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
     private static void checkMultiplicity(ChannelHandler handler) {
         if (handler instanceof ChannelHandlerAdapter) {
             ChannelHandlerAdapter h = (ChannelHandlerAdapter) handler;
+            // 我们的handler一般默认不是共享的
             if (!h.isSharable() && h.added) {
                 throw new ChannelPipelineException(
                         h.getClass().getName() +
@@ -1125,6 +1147,7 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         // the EventLoop.
         PendingHandlerCallback task = pendingHandlerCallbackHead;
         // 拿到之后，去执行每个task的execute方法，这个由eventloop去做
+        // 去迭代！！！！！1
         while (task != null) {
             task.execute();
             task = task.next;

@@ -54,9 +54,13 @@ final class ChannelHandlerMask {
     static final int MASK_WRITE = 1 << 15;
     static final int MASK_FLUSH = 1 << 16;
 
+    // 计算一个入站事件的掩码
+    // 0000 0000 0000 0001 1111 1110 0000 0000
     private static final int MASK_ALL_INBOUND = MASK_EXCEPTION_CAUGHT | MASK_CHANNEL_REGISTERED |
             MASK_CHANNEL_UNREGISTERED | MASK_CHANNEL_ACTIVE | MASK_CHANNEL_INACTIVE | MASK_CHANNEL_READ |
             MASK_CHANNEL_READ_COMPLETE | MASK_USER_EVENT_TRIGGERED | MASK_CHANNEL_WRITABILITY_CHANGED;
+    // 计算一个出站事件的掩码
+    // 0000 0000 0000 0001 1111 1110 0000 0001
     private static final int MASK_ALL_OUTBOUND = MASK_EXCEPTION_CAUGHT | MASK_BIND | MASK_CONNECT | MASK_DISCONNECT |
             MASK_CLOSE | MASK_DEREGISTER | MASK_READ | MASK_WRITE | MASK_FLUSH;
 
@@ -77,6 +81,7 @@ final class ChannelHandlerMask {
         Map<Class<? extends ChannelHandler>, Integer> cache = MASKS.get();
         Integer mask = cache.get(clazz);
         if (mask == null) {
+            // mask0 真正计算mask的方法
             mask = mask0(clazz);
             cache.put(clazz, mask);
         }
@@ -85,14 +90,22 @@ final class ChannelHandlerMask {
 
     /**
      * Calculate the {@code executionMask}.
+     * 参数：handler的真实class类型
+     * 返回值：int 类型的数，但是需要看它的二进制值
+     * 二进制中对应下标的位，代表指定的方法，位的值是1说明指定的方法在handlerType类型中进行了实现
+     * 位的值是0爱博士没有进行实现
      */
     private static int mask0(Class<? extends ChannelHandler> handlerType) {
         int mask = MASK_EXCEPTION_CAUGHT;
         try {
+            // 条件成立，说明handlerType类型 属于ChannelInboundHandler子类
             if (ChannelInboundHandler.class.isAssignableFrom(handlerType)) {
                 mask |= MASK_ALL_INBOUND;
-
+                // 1. handler真实class类型
+                // 2. 检查的方法名
+                // 3. ChannelHandlerContext.class
                 if (isSkippable(handlerType, "channelRegistered", ChannelHandlerContext.class)) {
+                    // 进入则说明当前handlerType没有重写该方法
                     mask &= ~MASK_CHANNEL_REGISTERED;
                 }
                 if (isSkippable(handlerType, "channelUnregistered", ChannelHandlerContext.class)) {
@@ -161,6 +174,9 @@ final class ChannelHandlerMask {
         return mask;
     }
 
+    // 1. handler真实class类型
+    // 2. 检查的方法名
+    // 3. ChannelHandlerContext.class
     @SuppressWarnings("rawtypes")
     private static boolean isSkippable(
             final Class<?> handlerType, final String methodName, final Class<?>... paramTypes) throws Exception {
@@ -175,6 +191,11 @@ final class ChannelHandlerMask {
                         "Class {} missing method {}, assume we can not skip execution", handlerType, methodName, e);
                     return false;
                 }
+                /**
+                 * 判断是否重写了@Skip标注的方法。
+                 * {@link ChannelInboundHandlerAdapter}里面的方法都用@Skip进行标注
+                 * 如果我们重写它的方法，就一般不会加上@Skip，它是这么来判断的
+                 */
                 return m != null && m.isAnnotationPresent(Skip.class);
             }
         });
