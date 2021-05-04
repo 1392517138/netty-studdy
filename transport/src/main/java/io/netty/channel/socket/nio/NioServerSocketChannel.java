@@ -15,10 +15,7 @@
  */
 package io.netty.channel.socket.nio;
 
-import io.netty.channel.ChannelException;
-import io.netty.channel.ChannelMetadata;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.ChannelOutboundBuffer;
+import io.netty.channel.*;
 import io.netty.util.internal.SocketUtils;
 import io.netty.channel.nio.AbstractNioMessageChannel;
 import io.netty.channel.socket.DefaultServerSocketChannelConfig;
@@ -45,8 +42,11 @@ import java.util.Map;
  */
 public class NioServerSocketChannel extends AbstractNioMessageChannel
                              implements io.netty.channel.socket.ServerSocketChannel {
-
+    /**
+     * {@link io.netty.channel.DefaultChannelConfig#DefaultChannelConfig(Channel, RecvByteBufAllocator)}
+     */
     private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
+
     private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
 
     private static final InternalLogger logger = InternalLoggerFactory.getInstance(NioServerSocketChannel.class);

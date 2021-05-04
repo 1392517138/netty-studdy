@@ -26,6 +26,7 @@ import io.netty.util.UncheckedBooleanSupplier;
  * and also prevents overflow.
  */
 public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessagesRecvByteBufAllocator {
+    // 获取每次读循环操作 最大能读取的数据量 每到ch内拉一次数据成为一个消息
     private volatile int maxMessagesPerRead;
     private volatile boolean respectMaybeMoreData = true;
 
@@ -85,32 +86,48 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
      * Focuses on enforcing the maximum messages per read condition for {@link #continueReading()}.
      */
     public abstract class MaxMessageHandle implements ExtendedHandle {
+        // channel#config
         private ChannelConfig config;
+        // 每次读循环操作 最大能读取的数据量 每到ch内拉一次数据成为一个消息
         private int maxMessagePerRead;
+        // 已经读的消息数量
         private int totalMessages;
+        // 已经读的消息size总大小
         private int totalBytesRead;
+        // 预估下次读的字节数
         private int attemptedBytesRead;
+        // 最后一次读的字节数
         private int lastBytesRead;
+        // true
         private final boolean respectMaybeMoreData = DefaultMaxMessagesRecvByteBufAllocator.this.respectMaybeMoreData;
         private final UncheckedBooleanSupplier defaultMaybeMoreSupplier = new UncheckedBooleanSupplier() {
             @Override
             public boolean get() {
+                // 预估读取量 == 最后一次读取量
+                // true: 代表最后一次读取的数据量 和 评估数量一致，说明ch内可能还剩余数据未读取完，还需要继续
+                // false:1.评估的数据量产生一个bytebuf 》 剩余数据量 2.ch close状态，lastBytesRead会是-1 都代表不继续循环
                 return attemptedBytesRead == lastBytesRead;
             }
         };
 
         /**
          * Only {@link ChannelConfig#getMaxMessagesPerRead()} is used.
+         * 重置当前heandle
          */
         @Override
         public void reset(ChannelConfig config) {
             this.config = config;
+            // 重新设置 读循环操作 最大可读消息量。为16，服务端客户端都是16
             maxMessagePerRead = maxMessagesPerRead();
+            // 统计字段归0
             totalMessages = totalBytesRead = 0;
         }
 
+        // 真正分配内存的缓冲区分配器
         @Override
         public ByteBuf allocate(ByteBufAllocator alloc) {
+            // guess()根据读循环过重置的上下文评估一个适合本次读大小的值
+            // 拿这个值去分配
             return alloc.ioBuffer(guess());
         }
 
@@ -137,9 +154,21 @@ public abstract class DefaultMaxMessagesRecvByteBufAllocator implements MaxMessa
             return continueReading(defaultMaybeMoreSupplier);
         }
 
+        /**
+         *     控制读循环是否继续循环，
+         *     什么情况会继续循环？ 4 个都是true
+         *     1. config.isAutoRead()某人为true
+         *     2. maybeMoreDataSupplier.get() true: 代表最后一次读取的数据量 和 评估数量一致，说明ch内可能还剩余数据未读取完，还需要继续
+         *     3. totalMessages < maxMessagePerRead :一次unsafe.read最多能从ch读取16次数据，不能超出16
+         *     4. totalBytesRead > 0
+         *          4.1 客户端 正常情况都是true，totalBytesRead>0。
+         *                  什么时候不会>0?读取的数据量太多了...超出intMax值了...会导致totalBytesRead<0
+         *          4.2 服务端 这里的值会是 0>0 => false，服务端每次unsafe.read()只进行一次读循环
+         */
         @Override
         public boolean continueReading(UncheckedBooleanSupplier maybeMoreDataSupplier) {
-            return config.isAutoRead() &&
+            return
+                    config.isAutoRead() &&
                    (!respectMaybeMoreData || maybeMoreDataSupplier.get()) &&
                    totalMessages < maxMessagePerRead &&
                    totalBytesRead > 0;

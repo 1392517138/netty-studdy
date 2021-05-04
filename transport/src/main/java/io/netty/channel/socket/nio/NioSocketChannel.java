@@ -107,6 +107,7 @@ public class NioSocketChannel extends AbstractNioByteChannel implements io.netty
         // 1.NioServerSocketChannle
         // 2.原声的SocketChannel
         super(parent, socket);
+        // 这个config里有我们的AdaptiveRecvByteBufAllocator
         config = new NioSocketChannelConfig(this, socket.socket());
     }
 

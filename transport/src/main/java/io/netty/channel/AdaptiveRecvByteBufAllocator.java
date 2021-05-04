@@ -32,6 +32,7 @@ import static java.lang.Math.min;
  * amount of the allocated buffer two times consecutively.  Otherwise, it keeps
  * returning the same prediction.
  */
+// 我们new 其实是它的内部类HandleImpl
 public class AdaptiveRecvByteBufAllocator extends DefaultMaxMessagesRecvByteBufAllocator {
 
     static final int DEFAULT_MINIMUM = 64;
