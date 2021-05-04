@@ -183,6 +183,7 @@ public abstract class AbstractNioByteChannel extends AbstractNioChannel {
                     byteBuf = null;
                 } while (allocHandle.continueReading());
 
+                // 读完后又去评估一下
                 allocHandle.readComplete();
                 // 设置客户端 SelectionKey 包含"read"标记，表示selector需要继续帮当前Channel监听read事件
                 pipeline.fireChannelReadComplete();
