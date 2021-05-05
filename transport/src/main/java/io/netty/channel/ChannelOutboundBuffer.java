@@ -70,18 +70,50 @@ public final class ChannelOutboundBuffer {
             return new ByteBuffer[1024];
         }
     };
-
+    // 表示当前出站缓冲区归属channel
     private final Channel channel;
 
+    /**
+     * 1. unflushedEntry != null && flushedEntry == null 此时出战缓冲区处于 数据入站阶段
+     * 2. unfluedEntry == null && flushedEntry != null 此时出站传冲去处于数据出站阶段，调用了addFlush之后，
+     * 会将flushedEntry指向原unflushedEntry的值，并且计算出来一个待刷新结点的值 flushed值
+     * ----------------------------------------------------------------------------
+     * 3. unflushedEntry != null && flushedEntry != null 这种情况比较极端
+     * 假设业务层面不停使用ctx.write,msg最终都会调用unsafe.write(msg ...) -> channelOutboundBuffer.addMessage(msg)
+     * e1 -> e2 -> e3 -> e4 -> e5 ... -> eN
+     * flushedEntry -> null
+     * unflushedEntry -> e1
+     * tailEntry -> eN
+     * 业务handler接下来，调用ctx.flush()，最终会触发unsafe.flush()
+     * unsafe.flush() {
+     *     1. cahnnelOutboundBuffer.addFlush() 这个方法会将 flushedEntry指向 unflushedEntry的元素， flushedEntry -> e1
+     *     2. channelOutboundBuffer.nioBuffers(...)这个方法会返回byteBuffer[]数组供下面逻辑使用
+     *     3. 遍历byteBuffer数组，调用JDK Channel.write(buffer)，该方法会返回真正写入socket写传冲区的字节数量，结果为res
+     *     4. 根据res移除出站缓冲区内的对应entry
+     * }
+     * socket写缓冲区 有可能会被写满，假设写到byteBuffer[3]的时候，socket写缓冲区满了...那么此时nioEventLoop再重试去写也没啥用，需要
+     * 怎么办？设置多路复用器 当前ch 关注 OP_WRITE事件，当底层socket写缓冲区有空闲时，多路复用器会再次唤醒NioEventLoop线程去处理...
+     *
+     * 这种情况，flushedEntry -> e4
+     * 业务handle再次使用ctx.write(msg)，那么unflushedEntry就指向当前msg对应的entry了
+     *
+     * e4 -> e5 -> .... -> eN -> eN+1
+     * flushedEntry -> e4
+     * unflushedEntry -> eN+1
+     * tailEntry -> eN+1
+     */
     // Entry(flushedEntry) --> ... Entry(unflushedEntry) --> ... Entry(tailEntry)
-    //
     // The Entry that is the first in the linked-list structure that was flushed
+    // 表示待刷新结点第一个结点
     private Entry flushedEntry;
     // The Entry which is the first unflushed in the linked-list structure
+    // 为未刷新的第一个结点
     private Entry unflushedEntry;
     // The Entry which represents the tail of the buffer
+    // 表示尾结点
     private Entry tailEntry;
     // The number of flushed entries that are not written yet
+    // 表示剩余多少entry待刷新到ch，addFlush方法会计算这个值，计算方式：从flushedEntry一直遍历到tail,计算出有多少元素
     private int flushed;
 
     private int nioBufferCount;
@@ -93,12 +125,15 @@ public final class ChannelOutboundBuffer {
             AtomicLongFieldUpdater.newUpdater(ChannelOutboundBuffer.class, "totalPendingSize");
 
     @SuppressWarnings("UnusedDeclaration")
+    // 出站缓冲区总共有多少字节量字节量，注意：包含entry自身字段占用的空间。entry->msg + entry.filed
     private volatile long totalPendingSize;
 
     private static final AtomicIntegerFieldUpdater<ChannelOutboundBuffer> UNWRITABLE_UPDATER =
             AtomicIntegerFieldUpdater.newUpdater(ChannelOutboundBuffer.class, "unwritable");
 
     @SuppressWarnings("UnusedDeclaration")
+    // 表示出站缓冲区释放可写，0表示可写，1不可写
+    // 如果业务层面不检查这个状态，不受限制
     private volatile int unwritable;
 
     private volatile Runnable fireChannelWritabilityChangedTask;
@@ -797,6 +832,7 @@ public final class ChannelOutboundBuffer {
         boolean processMessage(Object msg) throws Exception;
     }
 
+    // 它是用来存放我们的msg的
     static final class Entry {
         private static final ObjectPool<Entry> RECYCLER = ObjectPool.newPool(new ObjectCreator<Entry>() {
             @Override
@@ -804,17 +840,32 @@ public final class ChannelOutboundBuffer {
                 return new Entry(handle);
             }
         });
-
+        // 归还entry到ObjectPool使用的句柄
         private final Handle<Entry> handle;
         Entry next;
+        // 组装成链表使用的字段，指向下一个entry对象
         Object msg;
+        // 当unsafe调用出站缓冲区，nioBuffers方法时，被涉及到的entry都会将它的msg转换成byteBuffer，这里缓存结果使用
         ByteBuffer[] bufs;
         ByteBuffer buf;
+        // 业务层面关注 msg写结果 提交的promise
         ChannelPromise promise;
+        // 进度
         long progress;
+        // msg bytebuf有效数据量大小
         long total;
+        // byteBuf 有效数据量大小 + 96(16 + 6*8 + 16 + 8 + 1)
+        // Assuming a 64-bit JVM:
+        //  - 16 bytes object header
+        //  - 6 reference fields
+        //  - 2 long fields
+        //  - 2 int fields
+        //  - 1 boolean field
+        //  - padding
         int pendingSize;
+        // 当前msg bytebuf底层由多少byteBuffer组成，一般是1，特殊情况CompositeByteBuf底层由多个bytebuf组成
         int count = -1;
+        // 当前entry是否取消刷新到socket。默认是false
         boolean cancelled;
 
         private Entry(Handle<Entry> handle) {

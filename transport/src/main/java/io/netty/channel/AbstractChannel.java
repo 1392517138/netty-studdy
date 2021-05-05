@@ -438,6 +438,7 @@ public abstract class AbstractChannel extends DefaultAttributeMap implements Cha
      */
     protected abstract class AbstractUnsafe implements Unsafe {
 
+        // 每个channel都有一个属于自己的outbytebuf
         private volatile ChannelOutboundBuffer outboundBuffer = new ChannelOutboundBuffer(AbstractChannel.this);
         private RecvByteBufAllocator.Handle recvHandle;
         private boolean inFlush0;

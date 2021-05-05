@@ -1045,7 +1045,13 @@ public class DefaultChannelPipeline implements ChannelPipeline {
         return tail.write(msg);
     }
 
+
     @Override
+    /**
+     * 1. 一般是bytebuf对象，当有其他情况比如fileRegion不考虑这种情况
+     * 2. promise，业务如果关注本次写操作是否成功或者失败，可以手动提交一个跟msg相关的promise。
+     * promise可以注册一些坚挺着用于处理结果
+     */
     public final ChannelFuture write(Object msg, ChannelPromise promise) {
         return tail.write(msg, promise);
     }

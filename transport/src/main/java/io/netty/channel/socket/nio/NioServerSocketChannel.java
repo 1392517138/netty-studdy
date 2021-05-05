@@ -45,7 +45,7 @@ public class NioServerSocketChannel extends AbstractNioMessageChannel
     /**
      * {@link io.netty.channel.DefaultChannelConfig#DefaultChannelConfig(Channel, RecvByteBufAllocator)}
      */
-    private static final ChannelMetadata METADATA = new ChannelMetadata(false, 16);
+private static final ChannelMetadata METADATA = new ChannelMetadata(   false, 16);
 
     private static final SelectorProvider DEFAULT_SELECTOR_PROVIDER = SelectorProvider.provider();
 

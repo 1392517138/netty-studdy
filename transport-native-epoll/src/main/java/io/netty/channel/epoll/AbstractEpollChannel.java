@@ -303,14 +303,19 @@ abstract class AbstractEpollChannel extends AbstractChannel implements UnixChann
      * this method.
      */
     protected final ByteBuf newDirectBuffer(Object holder, ByteBuf buf) {
+        // 获取当前bytebuf可读数据量
         final int readableBytes = buf.readableBytes();
         if (readableBytes == 0) {
             ReferenceCountUtil.release(holder);
             return Unpooled.EMPTY_BUFFER;
         }
 
+        // 说明bytebuf内还是有有效数据的
+        // alloc是一个内存分配器 PooledByteBufAllocator
         final ByteBufAllocator alloc = alloc();
+        // 正常情况 该条件都会成立
         if (alloc.isDirectBufferPooled()) {
+            // 根据可读数据量，使用内存分配器分配一块指定大小的对外内存bytebuf对象
             return newDirectBuffer0(holder, buf, alloc, readableBytes);
         }
 
@@ -324,9 +329,12 @@ abstract class AbstractEpollChannel extends AbstractChannel implements UnixChann
         return directBuf;
     }
 
+    // 最好使用的时候就用堆外，否则还需要拷贝
     private static ByteBuf newDirectBuffer0(Object holder, ByteBuf buf, ByteBufAllocator alloc, int capacity) {
         final ByteBuf directBuf = alloc.directBuffer(capacity);
+        // 将堆内bytebuf数据拷贝到堆外bytebuf对象
         directBuf.writeBytes(buf, buf.readerIndex(), capacity);
+        // 释放堆内bytebuf占用的内存
         ReferenceCountUtil.safeRelease(holder);
         return directBuf;
     }
